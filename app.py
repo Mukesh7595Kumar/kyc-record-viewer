@@ -3,8 +3,7 @@ import pandas as pd
 import os
 
 app = Flask(__name__)
-UPLOAD_FOLDER = 'uploads'
-app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+app.config['UPLOAD_FOLDER'] = 'uploads'
 
 @app.route('/')
 def index():
@@ -17,19 +16,16 @@ def upload_file():
     file = request.files['file']
     if file.filename == '':
         return jsonify({'error': 'No selected file'})
-    if not file.filename.endswith('.xlsx'):
-        return jsonify({'error': 'Only .xlsx files are allowed'})
 
+    os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
     filepath = os.path.join(app.config['UPLOAD_FOLDER'], file.filename)
     file.save(filepath)
 
     try:
-        df = pd.read_excel(filepath)
-        records = df.fillna("").to_dict(orient='records')
-        return jsonify(records)
+        df = pd.read_excel(filepath, dtype=str).fillna("")
+        return jsonify(df.to_dict(orient='records'))
     except Exception as e:
-        return jsonify({'error': str(e)})
+        return jsonify({'error': f'Failed to process file: {str(e)}'})
 
 if __name__ == '__main__':
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host='0.0.0.0', port=port)
+    app.run(debug=True)
