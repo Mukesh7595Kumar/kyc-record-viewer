@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>KYC Record Viewer</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; background: #f9f9f9; }
+        h2 { text-align: center; }
+        .record { display: flex; flex-wrap: wrap; justify-content: space-between; max-width: 1200px; margin: auto; }
+        .field { width: 48%; margin: 10px 0; background: #fff; padding: 10px; border: 1px solid #ccc; border-radius: 8px; }
+        .field label { display: block; font-weight: bold; }
+        .field input { width: 100%; padding: 5px; margin: 5px 0; }
+        .buttons { margin-top: 5px; }
+        .buttons button { margin-right: 5px; }
+        .controls { text-align: center; margin-top: 20px; }
+    </style>
+</head>
+<body>
+
+<h2>KYC Record Viewer</h2>
+
+<form id="uploadForm">
+    <div style="text-align: center; margin-bottom: 20px;">
+        <input type="file" name="file" accept=".xlsx">
+        <button type="submit">Upload Excel</button>
+    </div>
+</form>
+
+<div class="controls">
+    <input type="text" id="jumpRecord" placeholder="Enter Record No">
+    <button onclick="jumpToRecord()">Jump</button>
+    <button onclick="prevRecord()">Previous</button>
+    <button onclick="nextRecord()">Next</button>
+</div>
+
+<div id="recordContainer" class="record"></div>
+
+<script>
+let records = [];
+let currentIndex = 0;
+let cutFlags = {};
+
+function renderRecord() {
+    const container = document.getElementById("recordContainer");
+    container.innerHTML = "";
+    if (!records.length) return;
+
+    const record = records[currentIndex];
+    Object.entries(record).forEach(([key, value]) => {
+        if (!(key in cutFlags)) cutFlags[key] = Array(records.length).fill(false);
+        let displayValue = cutFlags[key][currentIndex] ? "" : value;
+
+        const div = document.createElement("div");
+        div.className = "field";
+
+        div.innerHTML = `
+            <label>${key}</label>
+            <input type="text" id="field-${key}" value="${displayValue}" />
+            <div class="buttons">
+                <button onclick="cutField('${key}')">Cut</button>
+                <button onclick="changeCase('${key}')">Change</button>
+            </div>
+        `;
+
+        container.appendChild(div);
+    });
+    addSwapButtons();
+}
+
+function cutField(field) {
+    cutFlags[field][currentIndex] = !cutFlags[field][currentIndex];
+    renderRecord();
+}
+
+function changeCase(field) {
+    const input = document.getElementById(`field-${field}`);
+    let newValue = Array.from(input.value).map(c => {
+        if (/[a-z]/.test(c)) return c.toUpperCase();
+        if (/[A-Z]/.test(c)) return c.toLowerCase();
+        return c;
+    }).join("");
+    input.value = newValue;
+}
+
+function addSwapButtons() {
+    const fullName = document.getElementById("field-FULL NAME");
+    const fatherName = document.getElementById("field-FATHER NAME");
+    const contact1 = document.getElementById("field-CONTACT 1");
+    const contact2 = document.getElementById("field-CONTACT 2");
+
+    if (fullName && fatherName) {
+        fullName.insertAdjacentHTML("afterend", '<button onclick="swapFields('FULL NAME', 'FATHER NAME')">Swap Name/Father</button>');
+    }
+    if (contact1 && contact2) {
+        contact1.insertAdjacentHTML("afterend", '<button onclick="swapFields('CONTACT 1', 'CONTACT 2')">Swap Contact</button>');
+    }
+}
+
+function swapFields(field1, field2) {
+    const f1 = document.getElementById(`field-${field1}`);
+    const f2 = document.getElementById(`field-${field2}`);
+    [f1.value, f2.value] = [f2.value, f1.value];
+}
+
+function nextRecord() {
+    if (currentIndex < records.length - 1) {
+        currentIndex++;
+        renderRecord();
+    }
+}
+
+function prevRecord() {
+    if (currentIndex > 0) {
+        currentIndex--;
+        renderRecord();
+    }
+}
+
+function jumpToRecord() {
+    const recNo = document.getElementById("jumpRecord").value;
+    const index = records.findIndex(r => r["RECORD NO"] == recNo);
+    if (index !== -1) {
+        currentIndex = index;
+        renderRecord();
+    } else {
+        alert("Record not found.");
+    }
+}
+
+document.getElementById('uploadForm').onsubmit = function(e) {
+    e.preventDefault();
+    const formData = new FormData(this);
+    fetch('/upload', {
+        method: 'POST',
+        body: formData
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.error) {
+            alert(data.error);
+        } else {
+            records = data;
+            currentIndex = 0;
+            cutFlags = {};
+            renderRecord();
+        }
+    });
+};
+</script>
+
+</body>
+</html>
