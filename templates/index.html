@@ -4,15 +4,71 @@
     <meta charset="UTF-8">
     <title>KYC Record Viewer</title>
     <style>
-        body { font-family: Arial, sans-serif; padding: 20px; background: #f9f9f9; }
-        h2 { text-align: center; }
-        .record { display: flex; flex-wrap: wrap; justify-content: space-between; max-width: 1200px; margin: auto; }
-        .field { width: 48%; margin: 10px 0; background: #fff; padding: 10px; border: 1px solid #ccc; border-radius: 8px; }
-        .field label { display: block; font-weight: bold; }
-        .field input { width: 100%; padding: 5px; margin: 5px 0; }
-        .buttons { margin-top: 5px; }
-        .buttons button { margin-right: 5px; }
-        .controls { text-align: center; margin-top: 20px; }
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #f3e5dc;
+            overflow: hidden;
+        }
+        h2 { text-align: center; color: #2f2f2f; margin-bottom: 20px; }
+        .record {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 8px;
+            max-width: 100%;
+            margin: auto;
+        }
+        .field {
+            background: #fff;
+            padding: 4px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            box-shadow: 0 0 2px rgba(0,0,0,0.1);
+        }
+        .field label {
+            display: block;
+            font-weight: bold;
+            color: #3f3f3f;
+            margin-bottom: 1px;
+            font-size: 13px;
+        }
+        .field input {
+            width: 100%;
+            padding: 3px;
+            font-size: 13px;
+            border-radius: 3px;
+            border: 1px solid #aaa;
+        }
+        .buttons {
+            display: flex;
+            gap: 3px;
+            margin-top: 3px;
+        }
+        .buttons button {
+            flex: 1;
+            font-size: 10px;
+            padding: 1px 3px;
+            border-radius: 3px;
+            border: 1px solid #888;
+            background: #f0f0f0;
+            cursor: pointer;
+        }
+        .buttons button:hover {
+            background: #e0e0e0;
+        }
+        .controls {
+            text-align: center;
+            margin: 10px 0;
+        }
+        .controls input, .controls button {
+            font-size: 12px;
+            padding: 4px 6px;
+        }
+        form {
+            text-align: center;
+            margin-bottom: 10px;
+        }
     </style>
 </head>
 <body>
@@ -20,10 +76,8 @@
 <h2>KYC Record Viewer</h2>
 
 <form id="uploadForm">
-    <div style="text-align: center; margin-bottom: 20px;">
-        <input type="file" name="file" accept=".xlsx">
-        <button type="submit">Upload Excel</button>
-    </div>
+    <input type="file" name="file" accept=".xlsx">
+    <button type="submit">Upload Excel</button>
 </form>
 
 <div class="controls">
@@ -38,24 +92,32 @@
 <script>
 let records = [];
 let currentIndex = 0;
-let cutFlags = {};
 
 function renderRecord() {
+    const fieldOrder = [
+        "RECORD NO", "TYPE OF ACCOUNT", "REGD ADDRESS", "FULL NAME",
+        "FATHER NAME", "DATE OF BIRTH", "GENDER", "NATIONALITY",
+        "ADDRESS", "CITY/TOWN/DISTRICT", "STATE", "PIN CODE",
+        "MOBILE NO", "EMAIL", "CONTACT 1", "CONTACT 2",
+        "ADDRESS VERIFICATION", "ID VERIFICATION", "CENTRE NAME", "CENTRE CODE",
+        "REMARK"
+    ];
+
     const container = document.getElementById("recordContainer");
     container.innerHTML = "";
     if (!records.length) return;
 
     const record = records[currentIndex];
-    Object.entries(record).forEach(([key, value]) => {
-        if (!(key in cutFlags)) cutFlags[key] = Array(records.length).fill(false);
-        let displayValue = cutFlags[key][currentIndex] ? "" : value;
+
+    fieldOrder.forEach((key) => {
+        const value = record[key] || "";
 
         const div = document.createElement("div");
         div.className = "field";
 
         div.innerHTML = `
             <label>${key}</label>
-            <input type="text" id="field-${key}" value="${displayValue}" />
+            <input type="text" id="field-${key}" value="${value}" />
             <div class="buttons">
                 <button onclick="cutField('${key}')">Cut</button>
                 <button onclick="changeCase('${key}')">Change</button>
@@ -68,8 +130,8 @@ function renderRecord() {
 }
 
 function cutField(field) {
-    cutFlags[field][currentIndex] = !cutFlags[field][currentIndex];
-    renderRecord();
+    const input = document.getElementById(`field-${field}`);
+    navigator.clipboard.writeText(input.value);
 }
 
 function changeCase(field) {
@@ -88,11 +150,11 @@ function addSwapButtons() {
     const contact1 = document.getElementById("field-CONTACT 1");
     const contact2 = document.getElementById("field-CONTACT 2");
 
-    if (fullName && fatherName) {
-        fullName.insertAdjacentHTML("afterend", '<button onclick="swapFields('FULL NAME', 'FATHER NAME')">Swap Name/Father</button>');
+    if (fullName && fatherName && !document.getElementById("swapNameFather")) {
+        fullName.insertAdjacentHTML("afterend", '<button id="swapNameFather" onclick="swapFields(\'FULL NAME\', \'FATHER NAME\')">Swap Name/Father</button>');
     }
-    if (contact1 && contact2) {
-        contact1.insertAdjacentHTML("afterend", '<button onclick="swapFields('CONTACT 1', 'CONTACT 2')">Swap Contact</button>');
+    if (contact1 && contact2 && !document.getElementById("swapContacts")) {
+        contact1.insertAdjacentHTML("afterend", '<button id="swapContacts" onclick="swapFields(\'CONTACT 1\', \'CONTACT 2\')">Swap Contact</button>');
     }
 }
 
@@ -141,7 +203,6 @@ document.getElementById('uploadForm').onsubmit = function(e) {
         } else {
             records = data;
             currentIndex = 0;
-            cutFlags = {};
             renderRecord();
         }
     });
